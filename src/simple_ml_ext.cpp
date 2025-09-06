@@ -33,7 +33,47 @@ void softmax_regression_epoch_cpp(const float *X, const unsigned char *y,
      */
 
     /// BEGIN YOUR CODE
-
+    for (size_t start = 0; start < m; start += batch) {
+        size_t actual_batch = std::min(batch, m - start);
+        std::vector<float> exp_logits(actual_batch * k);
+        std::vector<float> grad(n * k, 0.0f);
+        // Compute exp of logits
+        for (size_t i = 0; i < actual_batch; ++i) {
+            for (size_t j = 0; j < k; ++j) {
+                float tmp = 0.0f;
+                for (size_t l = 0; l < n; ++l) {
+                    tmp += X[(start + i) * n + l] * theta[l * k + j];
+                }
+                exp_logits[i * k + j] = std::exp(tmp);
+            }
+        }
+        // Compute softmax probabilities
+        for (size_t i = 0; i < actual_batch; ++i) {
+            float sum_exp = 0.0f;
+            for (size_t j = 0; j < k; ++j) {
+                sum_exp += exp_logits[i * k + j];
+            }
+            for (size_t j = 0; j < k; ++j) {
+                exp_logits[i * k + j] /= sum_exp;
+            }
+        }
+        // Compute one hot encoding
+        for (size_t i = 0; i < actual_batch; ++i) {
+            exp_logits[i * k + y[start + i]] -= 1.0f;
+        }
+        // Accumulate gradients
+        for (size_t i = 0; i < actual_batch; ++i) {
+            for (size_t j = 0; j < k; ++j) {
+                for (size_t l = 0; l < n; ++l) {
+                    grad[l * k + j] += X[(start + i) * n + l] * exp_logits[i * k + j];
+                }
+            }
+        }
+        // Update theta
+        for (size_t j = 0; j < n * k; ++j) {
+            theta[j] -= (lr / actual_batch) * grad[j];
+        }
+    }
     /// END YOUR CODE
 }
 

@@ -20,7 +20,7 @@ def add(x, y):
         Sum of x + y
     """
     ### BEGIN YOUR CODE
-    pass
+    return x + y
     ### END YOUR CODE
 
 
@@ -48,7 +48,29 @@ def parse_mnist(image_filename, label_filename):
                 for MNIST will contain the values 0-9.
     """
     ### BEGIN YOUR CODE
-    pass
+    # Read image file
+    with gzip.open(image_filename, 'rb') as f:
+        # Read header
+        magic_num = struct.unpack('>I', f.read(4))[0]  # MSB first (big endian)
+        num_images = struct.unpack('>I', f.read(4))[0]
+        num_rows = struct.unpack('>I', f.read(4))[0]
+        num_cols = struct.unpack('>I', f.read(4))[0]
+        
+        # Read pixel data
+        pixels = np.frombuffer(f.read(), dtype=np.uint8)
+        # Reshape to (num_images, num_rows * num_cols) and normalize to [0, 1]
+        X = pixels.reshape(num_images, num_rows * num_cols).astype(np.float32) / 255.0
+    
+    # Read label file
+    with gzip.open(label_filename, 'rb') as f:
+        # Read header
+        magic_num = struct.unpack('>I', f.read(4))[0]  # MSB first (big endian)
+        num_labels = struct.unpack('>I', f.read(4))[0]
+        
+        # Read label data
+        y = np.frombuffer(f.read(), dtype=np.uint8)
+    
+    return X, y
     ### END YOUR CODE
 
 
@@ -68,7 +90,13 @@ def softmax_loss(Z, y):
         Average softmax loss over the sample.
     """
     ### BEGIN YOUR CODE
-    pass
+    exp_Z = np.exp(Z)
+    sum_exp_Z = np.sum(exp_Z, axis=1)
+    log_sum_exp = np.log(sum_exp_Z)
+    batch_size = Z.shape[0]
+    true_logits = Z[np.arange(batch_size), y]
+    loss = np.mean(log_sum_exp - true_logits)
+    return loss
     ### END YOUR CODE
 
 
@@ -91,7 +119,29 @@ def softmax_regression_epoch(X, y, theta, lr = 0.1, batch=100):
         None
     """
     ### BEGIN YOUR CODE
-    pass
+    num_examples = X.shape[0]
+    num_classes = theta.shape[1]
+    for start in range(0, num_examples, batch):
+        end = min(start + batch, num_examples)
+        X_batch = X[start:end]
+        y_batch = y[start:end]
+        
+        # Compute logits
+        logits = X_batch @ theta
+
+        # Compute softmax probabilities
+        exp_logits = np.exp(logits)
+        softmax_probs = exp_logits / np.sum(exp_logits, axis=1, keepdims=True)
+        
+        # Create one-hot encoding
+        batch_size = X_batch.shape[0]
+        I_y = np.eye(num_classes)[y_batch]
+        
+        # Compute gradient
+        gradient = (1/batch_size) * X_batch.T @ (softmax_probs - I_y)
+        
+        # Update parameters
+        theta -= lr * gradient
     ### END YOUR CODE
 
 
@@ -118,7 +168,33 @@ def nn_epoch(X, y, W1, W2, lr = 0.1, batch=100):
         None
     """
     ### BEGIN YOUR CODE
-    pass
+    num_examples = X.shape[0]
+    num_classes = W2.shape[1]
+    for start in range(0, num_examples, batch):
+        end = min(start + batch, num_examples)
+        X_batch = X[start:end]
+        y_batch = y[start:end]
+        
+        # Forward pass compute Z_1 = Relu(X_batch @ W1)
+        Z_1 = np.maximum(0, X_batch @ W1)
+        # Compute logits
+        logits = Z_1 @ W2
+        # Compute softmax probabilities
+        exp_logits = np.exp(logits)
+        softmax_probs = exp_logits / np.sum(exp_logits, axis=1, keepdims=True)
+        batch_size = X_batch.shape[0]
+        I_y = np.eye(num_classes)[y_batch]
+
+        # Backpropagation
+        G_2 = (1/batch_size) * (softmax_probs - I_y)
+        G_1 = G_2 @ W2.T * (Z_1 > 0)  # Apply ReLU derivative
+        # Compute gradients
+        grad_W2 = Z_1.T @ G_2
+        grad_W1 = X_batch.T @ G_1
+        # Update weights
+        W2 -= lr * grad_W2
+        W1 -= lr * grad_W1
+        
     ### END YOUR CODE
 
 
